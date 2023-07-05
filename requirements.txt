@@ -1,2 +1,3 @@
 pandas >=2.0.2
 streamlit_js_eval >=0.1.5
+gsheetsdb==0.1.13.1
