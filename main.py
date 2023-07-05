@@ -35,5 +35,4 @@ def execute_query(query):
      rows = cursor.execute(query)
      rows = rows.fetchall()
 
-create_connection()
 execute_query(f"SELECT * FROM '{sheet_url}'")
