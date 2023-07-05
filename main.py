@@ -32,11 +32,9 @@ def create_connection():
 
 def execute_query(query):
      cursor = create_connection()
-     rows = cursor.execute(query)
+     cursor.execute(query)
      rows = rows.fetchall()
      return rows
      
 
-rows = execute_query(f"SELECT * FROM '{sheet_url}'")
-for row in rows:
-    st.write(row)
+execute_query(f"UPDATE {sheet_url} SET Elo = Elo+5 WHERE Player = 'Juan'")
