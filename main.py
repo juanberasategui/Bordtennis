@@ -20,7 +20,12 @@ st.title("Fremtind Bordtennis Ranking")
 
 st.write("Her kan du se rankingen til Fremtind Bordtennis")
 
-ranking = pd.read_csv("bordtennis.csv")
+@st.cache_data(ttl=600)
+def load_data(sheets_url):
+    csv_url = sheets_url.replace("/edit#gid=", "/export?format=csv&gid=")
+    return pd.read_csv(csv_url)
+
+ranking = load_data(st.secrets["public_gsheets_url"])
 
 #order rows by elo
 ranking = ranking.sort_values(by="Elo", ascending=False)
