@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import torchvision.transforms as transforms
 import time
 from streamlit_js_eval import streamlit_js_eval
 
