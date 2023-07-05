@@ -5,6 +5,15 @@ from streamlit_js_eval import streamlit_js_eval
 
 
 
+
+csv_url = 'https://docs.google.com/spreadsheets/d/1uhnGgAMKkHJ6M3NztDs0A5xTXYiA4UMwH5sUObJThDs/export?format=csv'
+
+# Read the CSV data
+ranking = pd.read_csv(csv_url)
+
+
+
+
 if "player1" not in st.session_state:
     st.session_state["player1"] = False
 
@@ -22,13 +31,12 @@ st.write("Her kan du se rankingen til Fremtind Bordtennis")
 
 @st.cache_data(ttl=600)
 def load_data(sheets_url):
-    csv_url = sheets_url.replace("/edit#gid=", "/export?format=csv&gid=")
-    return pd.read_csv(csv_url)
+    return pd.read_csv(sheets_url)
 
 ranking = load_data(st.secrets["public_gsheets_url"])
 
 #order rows by elo
-ranking = ranking.sort_values(by="Elo", ascending=False)
+#ranking = ranking.sort_values(by="Elo", ascending=False)
 
 st.write(ranking)
 
