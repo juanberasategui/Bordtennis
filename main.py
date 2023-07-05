@@ -34,5 +34,9 @@ def execute_query(query):
      cursor = create_connection()
      rows = cursor.execute(query)
      rows = rows.fetchall()
+     return rows
+     
 
-execute_query(f"SELECT * FROM '{sheet_url}'")
+rows = execute_query(f"SELECT * FROM '{sheet_url}'")
+for row in rows:
+    st.write(row)
