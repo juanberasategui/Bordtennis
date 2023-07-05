@@ -27,7 +27,7 @@ def create_connection():
         })
     return connection.cursor()
 
-
+#ff
 
 
 def execute_query(query):
