@@ -5,11 +5,11 @@ from shillelagh.backends.apsw.db import connect
 sheet_url = st.secrets["private_gsheets_url"]
 
 def create_connection():
-     if 'email' in st.session_state:
-          credentials = service_account.Credentials.from_service_account_info(
+     
+    credentials = service_account.Credentials.from_service_account_info(
             st.secrets["gcp_service_account"], 
-            scopes=["https://www.googleapis.com/auth/spreadsheets",],)
-          connection = connect(":memory:", adapter_kwargs={
+    scopes=["https://www.googleapis.com/auth/spreadsheets",],)
+    connection = connect(":memory:", adapter_kwargs={
             "gsheetsapi" : { 
             "service_account_info" : {
                 "type" : st.secrets["gcp_service_account"]["type"],
@@ -25,7 +25,7 @@ def create_connection():
                 }
             },
         })
-     return connection.cursor()
+    return connection.cursor()
 
 
 
