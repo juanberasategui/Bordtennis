@@ -1,40 +1,148 @@
 import streamlit as st
-from google.oauth2 import service_account
-from shillelagh.backends.apsw.db import connect
+import pandas as pd
+import gspread
+from google.oauth2.service_account import Credentials
+import time
+from streamlit_js_eval import streamlit_js_eval
 
-sheet_url = st.secrets["private_gsheets_url"]
+scopes = [
+    "https://www.googleapis.com/auth/spreadsheets",
+]
 
-def create_connection():
-     
-    credentials = service_account.Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"], 
-    scopes=["https://www.googleapis.com/auth/spreadsheets",],)
-    connection = connect(":memory:", adapter_kwargs={
-            "gsheetsapi" : { 
-            "service_account_info" : {
-                "type" : st.secrets["gcp_service_account"]["type"],
-                "project_id" : st.secrets["gcp_service_account"]["project_id"],
-                "private_key_id" : st.secrets["gcp_service_account"]["private_key_id"],
-                "private_key" : st.secrets["gcp_service_account"]["private_key"],
-                "client_email" : st.secrets["gcp_service_account"]["client_email"],
-                "client_id" : st.secrets["gcp_service_account"]["client_id"],
-                "auth_uri" : st.secrets["gcp_service_account"]["auth_uri"],
-                "token_uri" : st.secrets["gcp_service_account"]["token_uri"],
-                "auth_provider_x509_cert_url" : st.secrets["gcp_service_account"]["auth_provider_x509_cert_url"],
-                "client_x509_cert_url" : st.secrets["gcp_service_account"]["client_x509_cert_url"],
-                }
-            },
-        })
-    return connection.cursor()
-
-#ff
+skey = st.secrets["gcp_service_account"]
+credentials = Credentials.from_service_account_info(
+    skey,
+    scopes=scopes,
+)
+client = gspread.authorize(credentials)
 
 
-def execute_query(query):
-     cursor = create_connection()
-     cursor.execute(query)
-     rows = rows.fetchall()
-     return rows
-     
+if "player1" not in st.session_state:
+    st.session_state["player1"] = False
 
-execute_query(f"UPDATE {sheet_url} SET Elo = Elo+5 WHERE Player = 'Juan'")
+if "player2" not in st.session_state:
+    st.session_state["player2"] = False
+
+if "newplayer" not in st.session_state:
+    st.session_state["newplayer"] = False
+
+
+
+# Perform SQL query on the Google Sheet.
+# Uses st.cache_data to only rerun when the query changes or after 10 min.
+@st.cache_data(ttl=4)
+def load_data(url, sheet_name="Sheet1"):
+    sh = client.open_by_url(url)
+    df = pd.DataFrame(sh.worksheet(sheet_name).get_all_records())
+    return df
+
+def update_data(df, url, sheet_name="Sheet1"):
+    sh = client.open_by_url(url)
+    worksheet = sh.worksheet(sheet_name)
+    worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+
+ranking = load_data(st.secrets["private_gsheets_url"])
+
+
+st.title("Fremtind Bordtennis Ranking")
+
+st.write("Her kan du se rankingen til Fremtind Bordtennis")
+st.write(ranking)
+
+if st.button("Er du ikke på ranking? Klikk her for å legge deg til"):
+    st.session_state["newplayer"] = True
+
+if st.session_state["newplayer"]:
+    name_new_player = st.text_input("Skriv inn navnet ditt")
+    if st.button("Legg til " + name_new_player):
+        ranking.loc[len(ranking)] = [name_new_player, 1, 0 ,0, 0]
+        
+        update_data(ranking, st.secrets["private_gsheets_url"])
+        st.write("**Siden oppdateres om 4 sek**")
+        time.sleep(4)
+        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+
+st.write("Skriv inn navn på spillerne som har spilt mot hverandre, og trykk på knappen til den som vant")
+
+name_p1 = st.text_input("Navn på spiller 1")
+name_p2 = st.text_input("Navn på spiller 2")
+
+if not name_p1 and name_p2:
+    st.write("Skriv inn navn på begge spillerne")
+
+if name_p1 and  name_p2:
+#get elo from "Juan"
+    st.write("du valgt " + name_p1 + " og " + name_p2)
+    try:
+        elo_p1 = ranking.loc[ranking["Player"] == name_p1, "Elo"].iloc[0]
+        elo_p2 = ranking.loc[ranking["Player"] == name_p2, "Elo"].iloc[0]
+    except:
+        st.write("En av spillerne er ikke på rankingen")
+        
+        st.write("**Siden oppdateres om 3 sek**")
+        time.sleep(3)
+        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+
+
+    if elo_p1 >= elo_p2:
+        elo_multiplier = elo_p1 / elo_p2
+        if elo_multiplier > 1.5:
+            elo_multiplier = 2
+        else:
+            elo_multiplier = elo_multiplier
+    else:
+        elo_multiplier = elo_p2 / elo_p1
+        if elo_multiplier > 1.5:
+            elo_multiplier = 2
+        else:
+            elo_multiplier = elo_multiplier
+
+
+    st.write("Spiller 1 Elo: " + str(elo_p1))
+    st.write("Spiller 2 Elo : " + str(elo_p2))
+
+    elo_winner = 50 *1/elo_multiplier
+    elo_loser = -50 *1/elo_multiplier
+
+    if st.button(name_p1 + " vant"):
+        st.session_state["player1"] = True
+
+    if st.button(name_p2 + " vant"):
+        st.session_state["player2"] = True
+
+
+    if st.session_state["player1"]:
+        st.write(name_p1 + " vant")
+        ranking.loc[ranking["Player"] == name_p1, "Wins"] += 1
+        ranking.loc[ranking["Player"] == name_p2, "Losses"] += 1
+        ranking.loc[ranking["Player"] == name_p1, "Elo"] += elo_winner
+        if (elo_p2 + elo_loser) < 1:
+            ranking.loc[ranking["Player"] == name_p2, "Elo"] = 1
+        else:
+            ranking.loc[ranking["Player"] == name_p2, "Elo"] += elo_loser
+        update_data(ranking, st.secrets["private_gsheets_url"])
+        st.write(ranking)
+        
+        st.write("Reload siden for å se oppdatert ranking, siden oppdateres automatisk om 5 sekunder")
+        time.sleep(5)
+        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+        st.session_state["player2"] = False
+        
+
+
+    if st.session_state["player2"]:
+        st.write(name_p2 + " vant")
+        ranking.loc[ranking["Player"] == name_p2, "Wins"] += 1
+        ranking.loc[ranking["Player"] == name_p1, "Losses"] += 1
+        ranking.loc[ranking["Player"] == name_p2, "Elo"] += elo_winner
+        if (elo_p1 + elo_loser) < 1:
+            ranking.loc[ranking["Player"] == name_p1, "Elo"] = 1
+        else:
+            ranking.loc[ranking["Player"] == name_p1, "Elo"] += elo_loser
+        update_data(ranking, st.secrets["private_gsheets_url"])
+        st.write(ranking)
+        
+        st.write("Reload siden for å se oppdatert ranking, siden oppdateres automatisk om 5 sekunder")
+        time.sleep(5)
+        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+        st.session_state["player2"] = False
