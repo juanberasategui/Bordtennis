@@ -47,6 +47,10 @@ ranking = load_data(st.secrets["private_gsheets_url"])
 st.title("Fremtind Bordtennis Ranking")
 
 st.write("Her kan du se rankingen til Fremtind Bordtennis")
+
+#Order by elo
+ranking = ranking.sort_values(by=['Elo'], ascending=False)
+
 st.write(ranking)
 
 if st.button("Er du ikke på ranking? Klikk her for å legge deg til"):
