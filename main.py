@@ -46,7 +46,7 @@ ranking = load_data(st.secrets["private_gsheets_url"])
 
 st.title("Fremtind Bordtennis Ranking")
 
-st.write("**Du vinner mest elo om du vinner mot en som har høyere elo enn deg selv. Du taper mest elo om du taper mot en som har lavere elo enn deg selv.**")
+st.write("**Du vinner mest elo om du vinner mot en som har høyere elo enn deg selv. Du taper mest elo om du taper mot en som har lavere elo enn deg selv.**  Sjekk GitHub for mer info")
 
 st.write("Her kan du se rankingen til Fremtind Bordtennis")
 
