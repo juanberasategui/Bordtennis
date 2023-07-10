@@ -87,14 +87,19 @@ if name_p1 and  name_p2:
         time.sleep(3)
         streamlit_js_eval(js_expressions="parent.window.location.reload()")
 
+    higher_elo_p1 = False
+    higher_elo_p2 = False
 
     if elo_p1 >= elo_p2:
+        higher_elo_p1 = True
         elo_multiplier = elo_p1 / elo_p2
+        
         if elo_multiplier > 1.5:
             elo_multiplier = 2
         else:
             elo_multiplier = elo_multiplier
     else:
+        higher_elo_p2 = True
         elo_multiplier = elo_p2 / elo_p1
         if elo_multiplier > 1.5:
             elo_multiplier = 2
@@ -106,7 +111,7 @@ if name_p1 and  name_p2:
     st.write("Spiller 2 Elo : " + str(elo_p2))
 
     elo_winner = 50 *1/elo_multiplier
-    elo_loser = -50 *1/elo_multiplier
+    elo_loser = -30 *1/elo_multiplier
 
     if st.button(name_p1 + " vant"):
         st.session_state["player1"] = True
@@ -119,11 +124,22 @@ if name_p1 and  name_p2:
         st.write(name_p1 + " vant")
         ranking.loc[ranking["Player"] == name_p1, "Wins"] += 1
         ranking.loc[ranking["Player"] == name_p2, "Losses"] += 1
-        ranking.loc[ranking["Player"] == name_p1, "Elo"] += elo_winner
-        if (elo_p2 + elo_loser) < 1:
-            ranking.loc[ranking["Player"] == name_p2, "Elo"] = 1
+        if higher_elo_p1==True:
+            ranking.loc[ranking["Player"] == name_p1, "Elo"] += 50*1/elo_multiplier
+            elo_loser = elo_p2 -30*1/elo_multiplier
+            
+            if elo_loser < 1:
+                ranking.loc[ranking["Player"] == name_p2, "Elo"] = 1
+            else:
+                ranking.loc[ranking["Player"] == name_p2, "Elo"] = elo_loser
         else:
-            ranking.loc[ranking["Player"] == name_p2, "Elo"] += elo_loser
+            ranking.loc[ranking["Player"] == name_p1, "Elo"] += 50*elo_multiplier
+            elo_loser = elo_p2 -30*elo_multiplier
+            
+            if elo_loser < 1:
+                ranking.loc[ranking["Player"] == name_p2, "Elo"] = 1
+            else:
+                ranking.loc[ranking["Player"] == name_p2, "Elo"] = elo_loser
         update_data(ranking, st.secrets["private_gsheets_url"])
         st.write(ranking)
         
@@ -138,11 +154,22 @@ if name_p1 and  name_p2:
         st.write(name_p2 + " vant")
         ranking.loc[ranking["Player"] == name_p2, "Wins"] += 1
         ranking.loc[ranking["Player"] == name_p1, "Losses"] += 1
-        ranking.loc[ranking["Player"] == name_p2, "Elo"] += elo_winner
-        if (elo_p1 + elo_loser) < 1:
-            ranking.loc[ranking["Player"] == name_p1, "Elo"] = 1
+        if higher_elo_p2==True:
+            ranking.loc[ranking["Player"] == name_p2, "Elo"] += 50*1/elo_multiplier
+            elo_loser = elo_p1 -30*1/elo_multiplier
+            
+            if elo_loser < 1:
+                ranking.loc[ranking["Player"] == name_p1, "Elo"] = 1
+            else:
+                ranking.loc[ranking["Player"] == name_p1, "Elo"] = elo_loser
         else:
-            ranking.loc[ranking["Player"] == name_p1, "Elo"] += elo_loser
+            ranking.loc[ranking["Player"] == name_p2, "Elo"] += 50*elo_multiplier
+            elo_loser = elo_p1 -30*elo_multiplier
+            
+            if elo_loser < 1:
+                ranking.loc[ranking["Player"] == name_p1, "Elo"] = 1
+            else:
+                ranking.loc[ranking["Player"] == name_p1, "Elo"] = elo_loser
         update_data(ranking, st.secrets["private_gsheets_url"])
         st.write(ranking)
         
