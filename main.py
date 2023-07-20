@@ -73,6 +73,9 @@ st.write("Skriv inn navn på spillerne som har spilt mot hverandre, og trykk på
 name_p1 = st.text_input("Navn på spiller 1")
 name_p2 = st.text_input("Navn på spiller 2")
 
+name_p1 = name_p1.strip()
+name_p2 = name_p2.strip()
+
 if not name_p1 and name_p2:
     st.write("Skriv inn navn på begge spillerne")
 
