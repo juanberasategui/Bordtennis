@@ -25,7 +25,7 @@ selected_strategies = []
 
 # Generate dropdowns and radio buttons based on the number of stocks selected
 for i in range(num_stocks):
-    model = st.selectbox(f"Select Model {i+1}", tickers, key=f"model_{i}")  # Unique key
+    model = st.selectbox(f"Select Ticker {i+1}", tickers, key=f"model_{i}")  # Unique key
     strategy = st.radio(f"Select Strategy for {model}", ["Long", "Short"], key=f"strategy_{i}")  # Unique key
     selected_models.append(model)
     selected_strategies.append(strategy)
