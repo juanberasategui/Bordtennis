@@ -4,7 +4,17 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+my_file = open("tickers.txt", "r")
+data=my_file.read()
+
+data = data.replace('\n', '')
+data = data.replace("'", '')
+data = data.replace(' ', '')
+tickers =data.split(",")
+
+
 st.title("Investing Back Test Application")
+
 
 # Slider to choose the number of stocks in the strategy
 num_stocks = st.slider("Select the Number of Stocks", min_value=1, max_value=5, value=2)
@@ -15,7 +25,7 @@ selected_strategies = []
 
 # Generate dropdowns and radio buttons based on the number of stocks selected
 for i in range(num_stocks):
-    model = st.selectbox(f"Select Model {i+1}", ["AAPL", "MSFT", "GOOGL", "AMZN"], key=f"model_{i}")  # Unique key
+    model = st.selectbox(f"Select Model {i+1}", tickers, key=f"model_{i}")  # Unique key
     strategy = st.radio(f"Select Strategy for {model}", ["Long", "Short"], key=f"strategy_{i}")  # Unique key
     selected_models.append(model)
     selected_strategies.append(strategy)
