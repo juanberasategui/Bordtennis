@@ -1,184 +1,66 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
-import gspread
-from google.oauth2.service_account import Credentials
-import time
-from streamlit_js_eval import streamlit_js_eval
+import numpy as np
+import matplotlib.pyplot as plt
 
-scopes = [
-    "https://www.googleapis.com/auth/spreadsheets",
-]
+st.title("Investing Back Test Application")
 
-skey = st.secrets["gcp_service_account"]
-credentials = Credentials.from_service_account_info(
-    skey,
-    scopes=scopes,
-)
-client = gspread.authorize(credentials)
+# Slider to choose the number of stocks in the strategy
+num_stocks = st.slider("Select the Number of Stocks", min_value=1, max_value=5, value=2)
 
+# Create a list to store the selected models and strategies
+selected_models = []
+selected_strategies = []
 
-if "player1" not in st.session_state:
-    st.session_state["player1"] = False
+# Generate dropdowns and radio buttons based on the number of stocks selected
+for i in range(num_stocks):
+    model = st.selectbox(f"Select Model {i+1}", ["AAPL", "MSFT", "GOOGL", "AMZN"], key=f"model_{i}")  # Unique key
+    strategy = st.radio(f"Select Strategy for {model}", ["Long", "Short"], key=f"strategy_{i}")  # Unique key
+    selected_models.append(model)
+    selected_strategies.append(strategy)
 
-if "player2" not in st.session_state:
-    st.session_state["player2"] = False
+# Slider to choose the time horizon (number of years)
+time_horizon = st.slider("Select the Time Horizon (Years)", min_value=1, max_value=10, value=1)
 
-if "newplayer" not in st.session_state:
-    st.session_state["newplayer"] = False
+if st.button("Get Data and Plot"):
+    plt.figure(figsize=(10, 6))
+    cumulative_return = 1.0  # Initialize cumulative return for the combined strategy
 
+    for i in range(num_stocks):
+        model = selected_models[i]
+        strategy = selected_strategies[i]
 
+        # Fetch data for the selected stock from Yahoo Finance
+        data = yf.download(model, period=f"{time_horizon}y")
 
-# Perform SQL query on the Google Sheet.
-# Uses st.cache_data to only rerun when the query changes or after 10 min.
-@st.cache_data(ttl=4)
-def load_data(url, sheet_name="Sheet1"):
-    sh = client.open_by_url(url)
-    df = pd.DataFrame(sh.worksheet(sheet_name).get_all_records())
-    return df
+        # Calculate daily returns
+        data['Daily Return'] = data['Adj Close'].pct_change()
 
-def update_data(df, url, sheet_name="Sheet1"):
-    sh = client.open_by_url(url)
-    worksheet = sh.worksheet(sheet_name)
-    worksheet.update([df.columns.values.tolist()] + df.values.tolist())
-
-ranking = load_data(st.secrets["private_gsheets_url"])
-
-
-st.title("Fremtind Bordtennis Ranking")
-
-st.write("**Du vinner mest elo om du vinner mot en som har høyere elo enn deg selv. Du taper mest elo om du taper mot en som har lavere elo enn deg selv.**  (Sjekk GitHub: https://github.com/juanberasategui/Bordtennis/blob/main/main.py for mer info om elo-systemet)")
-
-st.write("Her kan du se rankingen til Fremtind Bordtennis")
-
-#Order by elo
-ranking = ranking.sort_values(by=['Elo'], ascending=False)
-
-st.write(ranking)
-
-if st.button("Er du ikke på ranking? Klikk her for å legge deg til"):
-    st.session_state["newplayer"] = True
-
-if st.session_state["newplayer"]:
-    name_new_player = st.text_input("Skriv inn navnet ditt")
-    if st.button("Legg til " + name_new_player):
-        ranking.loc[len(ranking)] = [name_new_player, 1, 0 ,0, 0]
-        
-        update_data(ranking, st.secrets["private_gsheets_url"])
-        st.write("**Siden oppdateres om 4 sek**")
-        time.sleep(4)
-        streamlit_js_eval(js_expressions="parent.window.location.reload()")
-
-st.write("Skriv inn navn på spillerne som har spilt mot hverandre, og trykk på knappen til den som vant")
-
-name_p1 = st.text_input("Navn på spiller 1")
-name_p2 = st.text_input("Navn på spiller 2")
-
-name_p1 = name_p1.strip()
-name_p2 = name_p2.strip()
-
-if not name_p1 and name_p2:
-    st.write("Skriv inn navn på begge spillerne")
-
-if name_p1 and  name_p2:
-#get elo from "Juan"
-    st.write("du valgt " + name_p1 + " og " + name_p2)
-    try:
-        elo_p1 = ranking.loc[ranking["Player"] == name_p1, "Elo"].iloc[0]
-        elo_p2 = ranking.loc[ranking["Player"] == name_p2, "Elo"].iloc[0]
-    except:
-        st.write("En av spillerne er ikke på rankingen")
-        
-        st.write("**Siden oppdateres om 3 sek**")
-        time.sleep(3)
-        streamlit_js_eval(js_expressions="parent.window.location.reload()")
-
-    higher_elo_p1 = False
-    higher_elo_p2 = False
-
-    if elo_p1 >= elo_p2:
-        higher_elo_p1 = True
-        elo_multiplier = elo_p1 / elo_p2
-        
-        if elo_multiplier > 1.5:
-            elo_multiplier = 2
+        # Calculate cumulative returns based on the selected strategy
+        if strategy == "Long":
+            data['Cumulative Return'] = (1 + data['Daily Return']).cumprod()
         else:
-            elo_multiplier = elo_multiplier
-    else:
-        higher_elo_p2 = True
-        elo_multiplier = elo_p2 / elo_p1
-        if elo_multiplier > 1.5:
-            elo_multiplier = 2
-        else:
-            elo_multiplier = elo_multiplier
+            data['Cumulative Return'] = (1 - data['Daily Return']).cumprod()
 
+        cumulative_return *= data['Cumulative Return']  # Update cumulative return with the current stock's return
 
-    st.write("Spiller 1 Elo: " + str(elo_p1))
-    st.write("Spiller 2 Elo : " + str(elo_p2))
+        # Plot cumulative returns for individual stocks
+        #plt.plot(data.index, data['Cumulative Return'], label=f"{model} ({strategy})")
 
-    elo_winner = 50 *1/elo_multiplier
-    elo_loser = -30 *1/elo_multiplier
+    # Plot cumulative return for the combined strategy
+    plt.plot(data.index, cumulative_return, label="Combined Strategy", linestyle='--', linewidth=2)
 
-    if st.button(name_p1 + " vant"):
-        st.session_state["player1"] = True
+    plt.xlabel("Date")
+    plt.ylabel("Cumulative Return")
+    plt.title(f"Cumulative Returns Over {time_horizon} Years")
+    plt.legend()
 
-    if st.button(name_p2 + " vant"):
-        st.session_state["player2"] = True
+    # Calculate and display the total cumulative return
+    # Calculate and display the total cumulative return
+    total_return = cumulative_return.iloc[-1] - 1.0  # Extract the final cumulative return value
+    total_return_percentage = total_return * 100
+    formatted_total_return = f"{total_return:.2f} ({total_return_percentage:.2f}%)"
+    st.write(f"Total Cumulative Return Over {time_horizon} Years: {formatted_total_return}")
+    st.pyplot(plt)
 
-
-    if st.session_state["player1"]:
-        st.write(name_p1 + " vant")
-        ranking.loc[ranking["Player"] == name_p1, "Wins"] += 1
-        ranking.loc[ranking["Player"] == name_p2, "Losses"] += 1
-        if higher_elo_p1==True:
-            ranking.loc[ranking["Player"] == name_p1, "Elo"] += 50*1/elo_multiplier
-            elo_loser = elo_p2 -30*1/elo_multiplier
-            
-            if elo_loser < 1:
-                ranking.loc[ranking["Player"] == name_p2, "Elo"] = 1
-            else:
-                ranking.loc[ranking["Player"] == name_p2, "Elo"] = elo_loser
-        else:
-            ranking.loc[ranking["Player"] == name_p1, "Elo"] += 50*elo_multiplier
-            elo_loser = elo_p2 -30*elo_multiplier
-            
-            if elo_loser < 1:
-                ranking.loc[ranking["Player"] == name_p2, "Elo"] = 1
-            else:
-                ranking.loc[ranking["Player"] == name_p2, "Elo"] = elo_loser
-        update_data(ranking, st.secrets["private_gsheets_url"])
-        st.write(ranking)
-        
-        st.write("Reload siden for å se oppdatert ranking, siden oppdateres automatisk om 5 sekunder")
-        time.sleep(5)
-        streamlit_js_eval(js_expressions="parent.window.location.reload()")
-        st.session_state["player2"] = False
-        
-
-
-    if st.session_state["player2"]:
-        st.write(name_p2 + " vant")
-        ranking.loc[ranking["Player"] == name_p2, "Wins"] += 1
-        ranking.loc[ranking["Player"] == name_p1, "Losses"] += 1
-        if higher_elo_p2==True:
-            ranking.loc[ranking["Player"] == name_p2, "Elo"] += 50*1/elo_multiplier
-            elo_loser = elo_p1 -30*1/elo_multiplier
-            
-            if elo_loser < 1:
-                ranking.loc[ranking["Player"] == name_p1, "Elo"] = 1
-            else:
-                ranking.loc[ranking["Player"] == name_p1, "Elo"] = elo_loser
-        else:
-            ranking.loc[ranking["Player"] == name_p2, "Elo"] += 50*elo_multiplier
-            elo_loser = elo_p1 -30*elo_multiplier
-            
-            if elo_loser < 1:
-                ranking.loc[ranking["Player"] == name_p1, "Elo"] = 1
-            else:
-                ranking.loc[ranking["Player"] == name_p1, "Elo"] = elo_loser
-        update_data(ranking, st.secrets["private_gsheets_url"])
-        st.write(ranking)
-        
-        st.write("Reload siden for å se oppdatert ranking, siden oppdateres automatisk om 5 sekunder")
-        time.sleep(5)
-        streamlit_js_eval(js_expressions="parent.window.location.reload()")
-        st.session_state["player2"] = False
